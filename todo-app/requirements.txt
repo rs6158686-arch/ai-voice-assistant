@@ -1,0 +1,23 @@
+# To-Do List Application Requirements
+
+# Core Dependencies
+click==8.1.7
+colorama==0.4.6
+
+# Optional: For API backend (if extending to web)
+flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Code Quality
+black==23.12.0
+flake8==6.1.0
+pylint==3.0.3
+
+# Development
+ipython==8.17.2
+ipdb==0.13.13
