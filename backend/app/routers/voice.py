@@ -9,12 +9,13 @@ from pydantic import BaseModel
 from typing import Optional
 import speech_recognition as sr
 import io
+import os
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class TranscribeRequest(BaseModel):
-    language: str = "en-US"
+    language: str = "hi-IN"
     timeout: int = 10
 
 class TranscribeResponse(BaseModel):
@@ -22,17 +23,20 @@ class TranscribeResponse(BaseModel):
     confidence: float
     language: str
 
+# Default language from environment
+DEFAULT_LANGUAGE = os.getenv("DEFAULT_LANGUAGE", "hi-IN")
+
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(
     file: UploadFile = File(...),
-    language: str = "en-US"
+    language: str = DEFAULT_LANGUAGE
 ):
     """
     Transcribe audio file to text using Google Speech Recognition
     
     Args:
         file: Audio file (WAV, MP3, FLAC supported)
-        language: Language code (default: en-US)
+        language: Language code (default: hi-IN for Hindi)
     
     Returns:
         Transcribed text with confidence score
@@ -50,41 +54,53 @@ async def transcribe_audio(
         with audio_file as source:
             audio = recognizer.record(source)
         
-        # Perform transcription
+        # Perform transcription in specified language
         try:
             text = recognizer.recognize_google(audio, language=language)
             
-            logger.info(f"Successfully transcribed audio: {text}")
+            logger.info(f"Successfully transcribed audio in {language}: {text}")
             
             return TranscribeResponse(
                 text=text,
-                confidence=0.95,  # Google API doesn't return confidence
+                confidence=0.95,
                 language=language
             )
         except sr.UnknownValueError:
             logger.warning("Could not understand audio")
+            if language.startswith('hi'):
+                detail = "आवाज़ को समझ नहीं सके। कृपया दोबारा कोशिश करें।"
+            else:
+                detail = "Could not understand audio content"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Could not understand audio content"
+                detail=detail
             )
         except sr.RequestError as e:
             logger.error(f"Speech recognition error: {str(e)}")
+            if language.startswith('hi'):
+                detail = "Speech recognition सेवा उपलब्ध नहीं है"
+            else:
+                detail = "Speech recognition service unavailable"
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Speech recognition service unavailable"
+                detail=detail
             )
     
     except Exception as e:
         logger.error(f"Error processing audio: {str(e)}")
+        if language.startswith('hi'):
+            detail = "Audio को process करने में error आई"
+        else:
+            detail = "Error processing audio file"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error processing audio file"
+            detail=detail
         )
 
 @router.post("/stream")
 async def stream_audio(
     file: UploadFile = File(...),
-    language: str = "en-US"
+    language: str = DEFAULT_LANGUAGE
 ):
     """
     Stream audio for real-time transcription
@@ -118,14 +134,16 @@ async def get_supported_languages():
     """
     return {
         "languages": [
-            {"code": "en-US", "name": "English (US)"},
-            {"code": "en-GB", "name": "English (UK)"},
-            {"code": "es-ES", "name": "Spanish"},
-            {"code": "fr-FR", "name": "French"},
-            {"code": "de-DE", "name": "German"},
-            {"code": "it-IT", "name": "Italian"},
-            {"code": "ja-JP", "name": "Japanese"},
-            {"code": "zh-CN", "name": "Chinese (Simplified)"},
-            {"code": "hi-IN", "name": "Hindi"},
+            {"code": "hi-IN", "name": "🇮🇳 हिंदी (Hindi)", "flag": "🇮🇳"},
+            {"code": "en-US", "name": "🇺🇸 English (US)", "flag": "🇺🇸"},
+            {"code": "en-GB", "name": "🇬🇧 English (UK)", "flag": "🇬🇧"},
+            {"code": "es-ES", "name": "🇪🇸 Spanish", "flag": "🇪🇸"},
+            {"code": "fr-FR", "name": "🇫🇷 French", "flag": "🇫🇷"},
+            {"code": "de-DE", "name": "🇩🇪 German", "flag": "🇩🇪"},
+            {"code": "it-IT", "name": "🇮🇹 Italian", "flag": "🇮🇹"},
+            {"code": "ja-JP", "name": "🇯🇵 Japanese", "flag": "🇯🇵"},
+            {"code": "zh-CN", "name": "🇨🇳 Chinese (Simplified)", "flag": "🇨🇳"},
+            {"code": "pt-BR", "name": "🇧🇷 Portuguese (Brazil)", "flag": "🇧🇷"},
+            {"code": "ru-RU", "name": "🇷🇺 Russian", "flag": "🇷🇺"},
         ]
     }
